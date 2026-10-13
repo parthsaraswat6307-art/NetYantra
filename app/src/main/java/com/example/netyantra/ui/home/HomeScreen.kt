@@ -1,8 +1,10 @@
 package com.example.netyantra.ui.home
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -33,6 +35,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -57,6 +60,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.netyantra.data.MeasurementRepository
+import com.example.netyantra.decision.DecisionEvaluation
+import com.example.netyantra.decision.NetworkRecommendation
 import com.example.netyantra.monitor.NetworkMetrics
 import com.example.netyantra.monitor.NetworkTestResult
 import com.example.netyantra.monitor.TransportType
@@ -65,7 +70,10 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier) {
+fun HomeScreen(
+    onOpenSettings: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val measurementState by MeasurementRepository.state.collectAsState()
 
@@ -95,6 +103,11 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onOpenSettings) {
+                        Text("⚙", fontSize = 22.sp)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -141,6 +154,12 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                 }
             )
 
+            // Decision Engine Status Banner (When Mobile is Better)
+            val decision = measurementState.decisionEvaluation
+            if (decision.recommendation == NetworkRecommendation.MOBILE_IS_BETTER) {
+                MobileDataBetterAlertCard(decision = decision)
+            }
+
             // Wi-Fi Live Section
             LiveNetworkSectionCard(
                 title = "Wi-Fi",
@@ -160,16 +179,73 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                 subtext = "Low test usage mode (~200 KB per sample)"
             )
 
-            // Overall Status Section
+            // Overall Status Section with Decision Engine Summary
             StatusSummaryCard(
                 isServiceRunning = measurementState.isServiceRunning,
                 intervalSeconds = measurementState.intervalSeconds,
                 wifiAvailable = measurementState.wifiMetrics.isAvailable,
                 cellularAvailable = measurementState.cellularMetrics.isAvailable,
+                decision = decision,
                 lastRunTimestamp = measurementState.lastRunTimestamp
             )
 
             Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun MobileDataBetterAlertCard(
+    decision: DecisionEvaluation,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "⚡ Mobile data is better",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = decision.reason,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = {
+                    val settingsIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY)
+                    } else {
+                        Intent(Settings.ACTION_WIFI_SETTINGS)
+                    }.apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(settingsIntent)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("Open Network Settings Panel", fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -511,7 +587,7 @@ private fun HistoryRow(index: Int, result: NetworkTestResult) {
                 }
             } else {
                 Text(
-                    text = result.errorMessage?.take(18) ?: "Failed",
+                    text = result.errorMessage?.take(20) ?: "Failed",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     fontSize = 11.sp
@@ -527,6 +603,7 @@ private fun StatusSummaryCard(
     intervalSeconds: Long,
     wifiAvailable: Boolean,
     cellularAvailable: Boolean,
+    decision: DecisionEvaluation,
     lastRunTimestamp: Long?,
     modifier: Modifier = Modifier
 ) {
@@ -543,17 +620,19 @@ private fun StatusSummaryCard(
                 .padding(16.dp)
         ) {
             Text(
-                text = "Status",
+                text = "Decision & Network Status",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(modifier = Modifier.height(8.dp))
 
+            StatusRow("Engine Recommendation", decision.recommendation.displayName)
+            StatusRow("Decision Details", decision.reason)
             StatusRow("Service State", if (isServiceRunning) "Foreground Service Active" else "Stopped")
-            StatusRow("Measurement Cadence", "Every ${intervalSeconds}s (independent socket bindings)")
+            StatusRow("Measurement Cadence", "Every ${intervalSeconds}s")
+            StatusRow("Consecutive Worse Checks", "${decision.consecutiveWorseCount} of 3")
+            StatusRow("Anti-Flapping Hysteresis", if (decision.consecutiveBetterCount > 0) "Recovery: ${decision.consecutiveBetterCount}/2" else "Active")
             StatusRow("Active Interfaces", "Wi-Fi: ${if (wifiAvailable) "Available" else "None"} | Mobile: ${if (cellularAvailable) "Available" else "None"}")
-            StatusRow("Multi-Network Routing", "requestNetwork() pinning cellular radio enabled")
-            StatusRow("Notification", if (isServiceRunning) "Persistent in shade with Stop action" else "Inactive")
         }
     }
 }

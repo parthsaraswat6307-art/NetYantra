@@ -1,5 +1,6 @@
 package com.example.netyantra.monitor
 
+import com.example.netyantra.decision.DecisionEvaluation
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -54,6 +55,7 @@ data class MeasurementState(
     val intervalSeconds: Long = MeasurementConfig.DEFAULT_INTERVAL_SECONDS,
     val wifiMetrics: NetworkMetrics = NetworkMetrics(TransportType.WIFI),
     val cellularMetrics: NetworkMetrics = NetworkMetrics(TransportType.CELLULAR),
+    val decisionEvaluation: DecisionEvaluation = DecisionEvaluation(),
     val lastRunTimestamp: Long? = null,
     val activeSummary: String = "Monitoring Stopped"
 )

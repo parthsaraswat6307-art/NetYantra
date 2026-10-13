@@ -78,6 +78,12 @@ object MeasurementRepository {
         }
     }
 
+    fun updateDecisionEvaluation(evaluation: com.example.netyantra.decision.DecisionEvaluation) {
+        _state.update { current ->
+            current.copy(decisionEvaluation = evaluation)
+        }
+    }
+
     fun startService(context: Context, intervalSeconds: Long = _state.value.intervalSeconds) {
         setIntervalSeconds(intervalSeconds)
         val intent = Intent(context, NetworkMeasurementService::class.java).apply {
