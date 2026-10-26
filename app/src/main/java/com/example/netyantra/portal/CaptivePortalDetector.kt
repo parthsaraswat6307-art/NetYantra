@@ -74,12 +74,56 @@ class DefaultCaptivePortalDetector(
                     }
                 } else {
                     // Non-204 HTTP status (e.g. 200 with portal HTML page, 403, 511)
-                    val location = response.header("Location") ?: response.request.url.toString()
+                    val body = try { response.body?.string() ?: "" } catch (e: Exception) { "" }
+                    val location = extractPortalLoginUrl(
+                        locationHeader = response.header("Location"),
+                        body = body,
+                        requestUrl = response.request.url.toString()
+                    )
                     PortalState.Detected(loginUrl = location, ssid = "")
                 }
             }
         } catch (e: Exception) {
             PortalState.Error("Captive portal probe failed: ${e.message ?: "Connection error"}")
+        }
+    }
+
+    /**
+     * Extracts the captive portal login URL from HTTP headers or HTML content.
+     * Prevents returning generate_204 probe URLs as the login destination.
+     */
+    fun extractPortalLoginUrl(locationHeader: String?, body: String, requestUrl: String): String {
+        if (!locationHeader.isNullOrBlank()) {
+            return locationHeader.trim()
+        }
+
+        if (body.isNotBlank()) {
+            // 1. Script redirection: location.href = "..." or window.location = "..."
+            val scriptMatch = Regex("""(?:window\.)?location(?:\.href)?\s*=\s*['"]([^'"]+)['"]""", RegexOption.IGNORE_CASE)
+                .find(body)?.groupValues?.get(1)
+            if (!scriptMatch.isNullOrBlank()) return scriptMatch.trim()
+
+            // 2. Meta refresh: <meta http-equiv="refresh" content="...url=...">
+            val metaMatch = Regex("""<meta[^>]*http-equiv=['"]?refresh['"]?[^>]*content=['"][^'"]*url=([^'"\s>]+)['"]""", RegexOption.IGNORE_CASE)
+                .find(body)?.groupValues?.get(1)
+            if (!metaMatch.isNullOrBlank()) return metaMatch.trim()
+
+            // 3. Form action: <form action="...">
+            val formMatch = Regex("""<form[^>]*action=['"]([^'"]+)['"]""", RegexOption.IGNORE_CASE)
+                .find(body)?.groupValues?.get(1)
+            if (!formMatch.isNullOrBlank()) return formMatch.trim()
+
+            // 4. Common Cyberoam / Sophos signature (port 8090)
+            val sophosMatch = Regex("""https?://[a-zA-Z0-9.\-_]+:8090[^\s"'<>]*""", RegexOption.IGNORE_CASE)
+                .find(body)?.value
+            if (!sophosMatch.isNullOrBlank()) return sophosMatch.trim()
+        }
+
+        // Never return generate_204 or hotspot-detect probe URLs as the target login URL
+        return if (requestUrl.contains("generate_204") || requestUrl.contains("hotspot-detect")) {
+            ""
+        } else {
+            requestUrl
         }
     }
 }

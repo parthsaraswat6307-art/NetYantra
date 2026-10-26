@@ -73,7 +73,6 @@ class DualNetworkManager(private val context: Context) {
         if (isRegistered) return
 
         val wifiRequest = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
             .build()
 

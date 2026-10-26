@@ -156,4 +156,49 @@ class PortalTest {
 
         assertTrue("Apple hotspot Success probe should return PortalState.None", result is PortalState.None)
     }
+
+    @Test
+    fun testDetectorExtractsSophosHttpClientUrlFromScript() = runBlocking {
+        val sophosUrl = "http://172.16.16.16:8090/httpclient.html"
+        val htmlWithScript = """
+            <html>
+            <head>
+            <script language="javascript">
+            window.location.href="$sophosUrl";
+            </script>
+            </head>
+            <body>Please log in</body>
+            </html>
+        """.trimIndent()
+
+        val client = OkHttpClient.Builder()
+            .addInterceptor(Interceptor { chain ->
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(htmlWithScript.toResponseBody("text/html".toMediaType()))
+                    .build()
+            })
+            .build()
+
+        val detector = DefaultCaptivePortalDetector()
+        val result = detector.checkForCaptivePortal(client)
+
+        assertTrue(result is PortalState.Detected)
+        val detected = result as PortalState.Detected
+        assertEquals(sophosUrl, detected.loginUrl)
+    }
+
+    @Test
+    fun testDetectorDoesNotReturnGenerate204AsLoginUrl() {
+        val detector = DefaultCaptivePortalDetector()
+        val extracted = detector.extractPortalLoginUrl(
+            locationHeader = null,
+            body = "<html>Generic blocking page without explicit URL</html>",
+            requestUrl = "http://connectivitycheck.gstatic.com/generate_204"
+        )
+        assertTrue("generate_204 check URL must not be returned as the captive portal login URL", extracted.isEmpty())
+    }
 }

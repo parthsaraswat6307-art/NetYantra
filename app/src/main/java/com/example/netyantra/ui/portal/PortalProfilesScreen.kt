@@ -192,10 +192,13 @@ fun PortalProfilesScreen(
 
     // Dialog for Adding or Editing Profile
     if (isCreatingNew) {
+        val detectedUrl = (portalManager.portalState.collectAsState().value as? com.example.netyantra.portal.PortalState.Detected)?.loginUrl ?: ""
+        val defaultUrl = detectedUrl.ifBlank { portalManager.resolveGatewayLoginUrl() }
+
         ProfileEditDialog(
             initialProfile = PortalProfile(
-                ssid = initialSsidForNew ?: "",
-                loginUrl = portalManager.resolveGatewayLoginUrl(),
+                ssid = initialSsidForNew ?: activeWifiSsid ?: "",
+                loginUrl = defaultUrl,
                 usernameField = "username",
                 passwordField = "password",
                 username = "",
@@ -572,11 +575,42 @@ private fun ProfileEditDialog(
                     value = loginUrl,
                     onValueChange = { loginUrl = it },
                     label = { Text("Portal Login URL (Optional)") },
-                    placeholder = { Text("e.g. http://192.168.1.1/login") },
+                    placeholder = { Text("e.g. http://172.16.16.16:8090/httpclient.html") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp)
                 )
+
+                // Quick preset for Sophos / Cyberoam (Port 8090)
+                OutlinedButton(
+                    onClick = {
+                        if (loginUrl.isBlank() || !loginUrl.contains(":8090")) {
+                            loginUrl = "http://172.16.16.16:8090/httpclient.html"
+                        }
+                        usernameField = "username"
+                        passwordField = "password"
+                        extraFields["mode"] = "191"
+                        extraFields["producttype"] = "0"
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("⚡ Use Sophos / Cyberoam Preset (Port 8090)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                if (loginUrl.contains(":8090") || loginUrl.contains("httpclient", ignoreCase = true)) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "ℹ️ Sophos/Cyberoam firewall detected. NetYantra automatically ensures mode=191 and millisecond timestamps are sent.",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                }
 
                 // Form Field Names
                 Row(

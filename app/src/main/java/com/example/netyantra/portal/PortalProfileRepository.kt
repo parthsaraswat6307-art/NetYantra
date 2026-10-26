@@ -86,24 +86,37 @@ class PortalProfileRepository private constructor(context: Context) {
         return PortalProfile.fromJson(jsonStr, passwordOverride = password)
     }
 
-    fun getProfileForSsid(ssid: String?): PortalProfile? {
+    fun getProfileForSsid(ssid: String?, portalUrl: String? = null): PortalProfile? {
         val profiles = _profilesFlow.value
         if (profiles.isEmpty()) return null
 
-        if (ssid.isNullOrBlank() || ssid == "<unknown ssid>") {
-            // When SSID cannot be retrieved (e.g. location permission not yet granted on Android 10+),
-            // fallback to the saved profile if exactly one exists.
-            return if (profiles.size == 1) profiles.first() else null
+        // 1. If portalUrl is provided, check if any profile's login URL matches the portal host or IP
+        if (!portalUrl.isNullOrBlank()) {
+            val urlClean = portalUrl.lowercase().removePrefix("http://").removePrefix("https://")
+            val portalHost = urlClean.substringBefore('/').substringBefore(':')
+            if (portalHost.isNotBlank()) {
+                val matchedByUrl = profiles.firstOrNull { profile ->
+                    profile.loginUrl.isNotBlank() && profile.loginUrl.lowercase().contains(portalHost)
+                }
+                if (matchedByUrl != null) return matchedByUrl
+            }
         }
 
-        val trimmed = ssid.trim().removeSurrounding("\"")
-        return profiles.firstOrNull {
-            it.ssid.trim().removeSurrounding("\"").equals(trimmed, ignoreCase = true)
-        } ?: if (profiles.size == 1) profiles.first() else null
+        // 2. If valid SSID provided, match by SSID (case-insensitive)
+        if (!ssid.isNullOrBlank() && ssid != "<unknown ssid>") {
+            val trimmed = ssid.trim().removeSurrounding("\"")
+            val matchedBySsid = profiles.firstOrNull {
+                it.ssid.trim().removeSurrounding("\"").equals(trimmed, ignoreCase = true)
+            }
+            if (matchedBySsid != null) return matchedBySsid
+        }
+
+        // 3. Fallback when SSID cannot be retrieved (e.g. location permission not yet granted on Android 10+)
+        return profiles.firstOrNull()
     }
 
-    fun hasProfileForSsid(ssid: String?): Boolean {
-        return getProfileForSsid(ssid) != null
+    fun hasProfileForSsid(ssid: String?, portalUrl: String? = null): Boolean {
+        return getProfileForSsid(ssid, portalUrl) != null
     }
 
     /**

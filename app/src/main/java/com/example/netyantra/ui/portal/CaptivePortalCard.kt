@@ -54,10 +54,13 @@ fun CaptivePortalCard(
     val activeSsid by manager.currentWifiSsid.collectAsState()
     val isAutoLoggingIn by manager.isAutoLoggingIn.collectAsState()
     val statusMessage by manager.statusMessage.collectAsState()
+    val isWifiConnected by manager.isWifiConnected.collectAsState()
     val profiles by repository.profilesFlow.collectAsState()
 
     val currentSsid = activeSsid ?: ""
-    val hasSavedLoginForCurrentSsid = currentSsid.isNotBlank() && repository.hasProfileForSsid(currentSsid)
+    val detectedUrl = (portalState as? PortalState.Detected)?.loginUrl
+    val matchedProfile = repository.getProfileForSsid(currentSsid, detectedUrl)
+    val hasSavedLogin = matchedProfile != null
 
     val isDetected = portalState is PortalState.Detected
     val isChecking = portalState is PortalState.Checking
@@ -141,24 +144,34 @@ fun CaptivePortalCard(
             }
 
             // Description / Status text
-            if (currentSsid.isNotBlank()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = when {
+                        !isWifiConnected -> "Wi-Fi: Not connected"
+                        currentSsid.isNotBlank() -> "Wi-Fi: $currentSsid"
+                        matchedProfile != null -> "Wi-Fi: ${matchedProfile.ssid} (Saved)"
+                        else -> "Wi-Fi: Connected"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (hasSavedLogin && isWifiConnected) {
                     Text(
-                        text = "Wi-Fi: $currentSsid",
+                        text = "Login Profile Active",
                         style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold
+                        color = Color(0xFF2E7D32),
+                        fontWeight = FontWeight.Bold
                     )
-                    if (hasSavedLoginForCurrentSsid) {
-                        Text(
-                            text = "Login Profile Active",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF2E7D32),
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                } else if (hasSavedLogin) {
+                    Text(
+                        text = "Profile Saved",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
 
@@ -168,6 +181,20 @@ fun CaptivePortalCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            if (!isWifiConnected || statusMessage?.contains("Wi-Fi not connected", ignoreCase = true) == true) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                ) {
+                    Text(
+                        text = "💡 Make sure your phone is connected to the college Wi-Fi in Android Settings. If your phone automatically switches back to Mobile Data, tap 'Keep Wi-Fi connection' or temporarily turn off Mobile Data while logging in.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
             }
 
             if (portalState is PortalState.Detected) {
@@ -198,8 +225,8 @@ fun CaptivePortalCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // If a login profile is saved for the connected Wi-Fi, provide "Delete saved login"
-                if (hasSavedLoginForCurrentSsid) {
+                // If a login profile is saved, provide "Delete saved login"
+                if (hasSavedLogin) {
                     OutlinedButton(
                         onClick = { manager.deleteSavedLoginForCurrentWifi() },
                         colors = ButtonDefaults.outlinedButtonColors(
@@ -213,7 +240,7 @@ fun CaptivePortalCard(
                 }
 
                 // Auto-login trigger or check trigger
-                if (hasSavedLoginForCurrentSsid) {
+                if (hasSavedLogin) {
                     Button(
                         onClick = {
                             scope.launch {
@@ -234,7 +261,7 @@ fun CaptivePortalCard(
                             Text("Auto-Login Now", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
-                } else if (currentSsid.isNotBlank() && (isDetected || isError)) {
+                } else if (isDetected || isError) {
                     Button(
                         onClick = onOpenPortalProfiles,
                         shape = RoundedCornerShape(10.dp),
