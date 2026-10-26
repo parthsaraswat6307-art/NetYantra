@@ -10,8 +10,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.example.netyantra.ui.home.HomeScreen
+import com.example.netyantra.ui.portal.PortalProfilesScreen
 import com.example.netyantra.ui.settings.SettingsScreen
 import com.example.netyantra.ui.theme.NetYantraTheme
+
+enum class CurrentScreen {
+    HOME,
+    SETTINGS,
+    PORTAL_PROFILES
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -19,16 +26,30 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             NetYantraTheme {
-                var isSettingsOpen by remember { mutableStateOf(false) }
+                var currentScreen by remember { mutableStateOf(CurrentScreen.HOME) }
 
-                BackHandler(enabled = isSettingsOpen) {
-                    isSettingsOpen = false
+                BackHandler(enabled = currentScreen != CurrentScreen.HOME) {
+                    currentScreen = CurrentScreen.HOME
                 }
 
-                if (isSettingsOpen) {
-                    SettingsScreen(onNavigateBack = { isSettingsOpen = false })
-                } else {
-                    HomeScreen(onOpenSettings = { isSettingsOpen = true })
+                when (currentScreen) {
+                    CurrentScreen.HOME -> {
+                        HomeScreen(
+                            onOpenSettings = { currentScreen = CurrentScreen.SETTINGS },
+                            onOpenPortalProfiles = { currentScreen = CurrentScreen.PORTAL_PROFILES }
+                        )
+                    }
+                    CurrentScreen.SETTINGS -> {
+                        SettingsScreen(
+                            onNavigateBack = { currentScreen = CurrentScreen.HOME },
+                            onOpenPortalProfiles = { currentScreen = CurrentScreen.PORTAL_PROFILES }
+                        )
+                    }
+                    CurrentScreen.PORTAL_PROFILES -> {
+                        PortalProfilesScreen(
+                            onNavigateBack = { currentScreen = CurrentScreen.HOME }
+                        )
+                    }
                 }
             }
         }

@@ -6,6 +6,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import com.example.netyantra.data.MeasurementRepository
+import com.example.netyantra.portal.CaptivePortalManager
 
 class DualNetworkManager(private val context: Context) {
 
@@ -26,12 +27,21 @@ class DualNetworkManager(private val context: Context) {
         override fun onAvailable(network: Network) {
             wifiNetwork = network
             MeasurementRepository.updateWifiAvailability(true)
+            CaptivePortalManager.getInstance(context).onWifiConnected(network)
+        }
+
+        override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
+            if (wifiNetwork == network || wifiNetwork == null) {
+                wifiNetwork = network
+                CaptivePortalManager.getInstance(context).onWifiConnected(network, networkCapabilities)
+            }
         }
 
         override fun onLost(network: Network) {
             if (wifiNetwork == network) {
                 wifiNetwork = null
                 MeasurementRepository.updateWifiAvailability(false)
+                CaptivePortalManager.getInstance(context).onWifiLost(network)
             }
         }
     }
