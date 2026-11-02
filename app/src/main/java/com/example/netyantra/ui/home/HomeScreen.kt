@@ -65,6 +65,7 @@ import com.example.netyantra.decision.NetworkRecommendation
 import com.example.netyantra.monitor.NetworkMetrics
 import com.example.netyantra.monitor.NetworkTestResult
 import com.example.netyantra.monitor.TransportType
+import com.example.netyantra.ui.portal.CaptivePortalCard
 import com.example.netyantra.ui.theme.NetYantraTheme
 import java.util.Locale
 
@@ -72,7 +73,11 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     onOpenSettings: () -> Unit = {},
+<<<<<<< HEAD
     onOpenPortal: () -> Unit = {},
+=======
+    onOpenPortalProfiles: () -> Unit = {},
+>>>>>>> 82c67c162835b68413524d9d06d3dd47615fe55a
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -107,8 +112,13 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+<<<<<<< HEAD
                     IconButton(onClick = onOpenPortal) {
                         Text("🔑", fontSize = 20.sp)
+=======
+                    IconButton(onClick = onOpenPortalProfiles) {
+                        Text("🔐", fontSize = 20.sp)
+>>>>>>> 82c67c162835b68413524d9d06d3dd47615fe55a
                     }
                     IconButton(onClick = onOpenSettings) {
                         Text("⚙", fontSize = 22.sp)
@@ -193,6 +203,9 @@ fun HomeScreen(
                     }
                 }
             )
+
+            // Captive Portal Auto-Login Status & Quick Actions
+            CaptivePortalCard(onOpenPortalProfiles = onOpenPortalProfiles)
 
             // Decision Engine Status Banner (When Mobile is Better)
             val decision = measurementState.decisionEvaluation

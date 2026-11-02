@@ -50,6 +50,7 @@ import java.util.Locale
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    onOpenPortalProfiles: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -239,7 +240,21 @@ fun SettingsScreen(
                 }
             }
 
-            // Section 5: System Network Settings Shortcut
+            // Section 5: Captive Portal Auto-Login
+            SettingsCard(
+                title = "Captive Portal Auto-Login",
+                subtitle = "Manage saved Wi-Fi portal login profiles and Keystore-secured credentials"
+            ) {
+                OutlinedButton(
+                    onClick = onOpenPortalProfiles,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("🔐 Manage Portal Profiles", fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            // Section 6: System Network Settings Shortcut
             OutlinedButton(
                 onClick = {
                     val settingsIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
