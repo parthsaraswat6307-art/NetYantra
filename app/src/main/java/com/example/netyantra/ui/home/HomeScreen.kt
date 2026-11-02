@@ -72,6 +72,7 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     onOpenSettings: () -> Unit = {},
+    onOpenPortal: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -106,6 +107,9 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onOpenPortal) {
+                        Text("🔑", fontSize = 20.sp)
+                    }
                     IconButton(onClick = onOpenSettings) {
                         Text("⚙", fontSize = 22.sp)
                     }
@@ -124,6 +128,42 @@ fun HomeScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Captive Portal Login Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Captive Portal Login",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Sophos/Cyberoam login via Wi-Fi socket",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Button(
+                        onClick = onOpenPortal,
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Portal", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
             // Service Controls Card
             ServiceControlCard(
                 isRunning = measurementState.isServiceRunning,

@@ -9,9 +9,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.example.netyantra.portal.SophosPortalScreen
 import com.example.netyantra.ui.home.HomeScreen
 import com.example.netyantra.ui.settings.SettingsScreen
 import com.example.netyantra.ui.theme.NetYantraTheme
+
+enum class AppScreen {
+    HOME,
+    SETTINGS,
+    PORTAL
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -19,16 +26,19 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             NetYantraTheme {
-                var isSettingsOpen by remember { mutableStateOf(false) }
+                var currentScreen by remember { mutableStateOf(AppScreen.HOME) }
 
-                BackHandler(enabled = isSettingsOpen) {
-                    isSettingsOpen = false
+                BackHandler(enabled = currentScreen != AppScreen.HOME) {
+                    currentScreen = AppScreen.HOME
                 }
 
-                if (isSettingsOpen) {
-                    SettingsScreen(onNavigateBack = { isSettingsOpen = false })
-                } else {
-                    HomeScreen(onOpenSettings = { isSettingsOpen = true })
+                when (currentScreen) {
+                    AppScreen.SETTINGS -> SettingsScreen(onNavigateBack = { currentScreen = AppScreen.HOME })
+                    AppScreen.PORTAL -> SophosPortalScreen(onNavigateBack = { currentScreen = AppScreen.HOME })
+                    AppScreen.HOME -> HomeScreen(
+                        onOpenSettings = { currentScreen = AppScreen.SETTINGS },
+                        onOpenPortal = { currentScreen = AppScreen.PORTAL }
+                    )
                 }
             }
         }
